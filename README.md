@@ -16,9 +16,10 @@
 
 ## Inputs
 
-| Name          | Description                                         | Default | Required |
-|---------------|-----------------------------------------------------|---------|----------|
-| `output_file` | Path to the file with the Terraform plan output.    | None    | Yes      |
+| Name          | Description                                         | Default                             | Required |
+|---------------|-----------------------------------------------------|-------------------------------------|----------|
+| `output_file` | Path to the file with the Terraform plan output.    | None                                | Yes      |
+| `headline`    | Optional headline text for the PR comment.          | ### Terraform Plan Essential Output | No       |
 
 ## Usage
 
@@ -31,6 +32,9 @@
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+## Version `v1` (Default Version)
+
+Users can specify `v1` to use the latest `v1` version of this action.
 
 ## Example Workflow
 ### Key Points:

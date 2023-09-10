@@ -38,6 +38,6 @@ clean_essential_output=$(remove_ansi_codes "$essential_output")
 if [[ -z $clean_essential_output ]]; then
   comment_on_pr "Terraform essential output is empty. Please check the plan output."
 else
-  comment_body=$(printf "## Terraform Plan Essential Output\n\`\`\`\n%s\n\`\`\`\n" "$clean_essential_output")
+  comment_body=$(printf "$2\n\`\`\`\n%s\n\`\`\`\n" "$clean_essential_output")
   comment_on_pr "$comment_body"
 fi
