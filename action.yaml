@@ -1,0 +1,13 @@
+name: 'Comment Terraform Plan on PR'
+description: 'Automatically comments the essential Terraform plan output on a Pull Request'
+inputs:
+  output_file:
+    description: 'Path to the Terraform plan output file'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - run: chmod +x ${{ github.action_path }}/src/main.sh
+      shell: bash
+    - run: ${{ github.action_path }}/src/main.sh "${{ inputs.output_file }}"
+      shell: bash

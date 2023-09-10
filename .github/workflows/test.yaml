@@ -1,0 +1,125 @@
+name: Test and Confirm GitHub Action
+
+on:
+  push:
+    branches: [ test ]
+  pull_request:
+    branches: [ test ]
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Azure login
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        allow-no-subscriptions: true
+
+    - name: Install Latest Stable Terraform
+      run: |
+        curl -sL https://releases.hashicorp.com/terraform/index.json | jq -r '.versions[].builds[].url' | grep 'linux.*amd64' | grep -v 'beta' | grep -v 'alpha' | sort -V | tail -n1 | wget -i -
+        rm -rf terraform_binary && mkdir terraform_binary
+        unzip -o terraform_*_linux_amd64.zip -d ./terraform_binary
+        sudo mv ./terraform_binary/terraform /usr/local/bin/
+        terraform -version
+
+    - name: Terraform Init
+      run: |
+        cd "${{ github.workspace }}/terraform"
+        terraform init
+
+    - name: Terraform Plan
+      id: terraform-plan
+      run: |
+        output_file="$RUNNER_TEMP/${{ github.run_id }}_terraform_output_file.txt"
+        echo "output_file=$output_file" >> $GITHUB_ENV
+        echo "output_file=$output_file" >> $GITHUB_OUTPUT
+        cd "${{ github.workspace }}/terraform"
+        terraform plan -out=tfplan -detailed-exitcode 2>&1 | tee "$output_file"
+        plan_exit_code=${PIPESTATUS[0]}
+        echo "PLAN_EXIT_CODE=$plan_exit_code" >> $GITHUB_ENV
+
+    - name: Evaluate Terraform Plan Exit Code
+      id: evaluate-plan-exit-code
+      run: |
+        if [[ $PLAN_EXIT_CODE == "0" ]]; then                                                 # If the plan exit code is 0, then no changes were detected
+          pr_body="No Terraform Plan changes detected. Pull Request safe to merge."
+          echo "no_changes=true" >> $GITHUB_OUTPUT                                            # If the plan exit code is 1, then an error occurred during the plan
+        elif [[ $PLAN_EXIT_CODE == "1" ]]; then
+          echo "Error occurred during Terraform plan. Exiting workflow."
+          exit 1
+        elif [[ $PLAN_EXIT_CODE == "2" ]]; then                                               # If the plan exit code is 2, then changes were detected
+          pr_body="Changes detected. Evaluate Terraform plan output carefully before you merge the pull request."
+        else                                                                                  # If plan exit code is something else, then exit the workflow
+          echo "Unexpected exit code. Exiting workflow."
+          exit 1
+        fi
+
+        echo "pull request message: $pr_body"
+        echo "pr_body=$pr_body" >> $GITHUB_ENV
+
+    - name: Create or Update Pull Request
+      if: ${{ !contains(github.event.head_commit.message, '@skip_pr') }}
+      id: create-pr
+      run: |
+        export GH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+        branch_name=$(git rev-parse --abbrev-ref HEAD)
+        git config user.name "GitHub Action"
+        git config user.email "action@github.com"
+        
+        echo "debug 1"
+        existing_pr=$(gh pr list --base main -H "$branch_name" -s "open" --json number -q '.[0].number')
+        echo "debug 2"
+        if [ -z "$existing_pr" ]; then
+          # Create a new pull request
+          pr_url=$(gh pr create --base main --head "$branch_name" --title "Review Plan Output" --body "$pr_body" --draft)
+          echo "debug 3"
+          if [ -z "$pr_url" ]; then
+            cat error.log
+            echo "debug 4"
+            exit 1
+          fi
+          pr_id=${pr_url##*/}
+        else
+          echo "debug 5"
+          # Update the existing pull request
+          gh pr comment "$existing_pr" --body "$pr_body"
+          echo "debug 6"
+          pr_id="$existing_pr"
+        fi
+        echo "debug 6"
+        if [ -z "$pr_id" ]; then
+          echo "debug 7"
+          cat error.log
+          exit 1
+        fi
+        echo "debug 8"
+        echo "PR ID: $pr_id"
+        echo "pr_id=$pr_id" >> $GITHUB_ENV
+
+    - name: Test and Confirm GitHub Action
+      uses: ./ # Or use the repository URL if testing from another repository
+      with:
+        output_file: "${{ steps.terraform-plan.outputs.output_file }}"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
