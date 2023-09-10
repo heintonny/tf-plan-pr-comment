@@ -1,9 +1,15 @@
 name: 'Comment Terraform Plan on PR'
 description: 'Automatically comments the essential Terraform plan output on a Pull Request'
+icon: check-circle
+color: orange
 inputs:
   output_file:
     description: 'Path to the Terraform plan output file'
     required: true
+  headline:
+    description: 'Headline of the comment'
+    required: false
+    default: '### Terraform Plan Essential Output'
 runs:
   using: 'composite'
   steps:
