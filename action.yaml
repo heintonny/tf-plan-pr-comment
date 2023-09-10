@@ -15,5 +15,5 @@ runs:
   steps:
     - run: chmod +x ${{ github.action_path }}/src/main.sh
       shell: bash
-    - run: ${{ github.action_path }}/src/main.sh "${{ inputs.output_file }} ${{ inputs.headline }}"
+    - run: ${{ github.action_path }}/src/main.sh "${{ inputs.output_file }}" "${{ inputs.headline }}"
       shell: bash
