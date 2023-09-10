@@ -23,17 +23,16 @@
 
 ## Usage
 
-
 ```yaml
 - name: Comment Terraform Plan on PR
   uses: blinqas/tf-plan-pr-comment@v1
   with:
     output_file: 'path/to/your/output/file'
+    headline: "### Your Headline"
   env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 ## Version `v1` (Default Version)
-
 Users can specify `v1` to use the latest `v1` version of this action.
 
 ## Example Workflow
