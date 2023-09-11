@@ -31,3 +31,22 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: npx semantic-release
 
+    - name: Update v1 Version
+      if: startsWith(github.ref, 'refs/tags/v1')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Get the latest v1.x.x release tag
+        latest_v1_tag=$(git ls-remote --tags origin 'refs/tags/v1.*' | awk -F/ '{print $3}' | sort -V | tail -n 1)
+
+        # Delete the existing v1 tag if it exists
+        if git show-ref --tags --quiet --verify -- "refs/tags/v1"; then
+          git tag -d v1
+          git push --delete origin v1
+        fi
+
+        # Create a new v1 tag pointing to the latest v1.x.x release
+        git fetch --all --tags
+        git tag -a v1 -m "v1" $latest_v1_tag        
+        git push --tags
+
